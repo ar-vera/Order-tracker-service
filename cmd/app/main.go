@@ -1,59 +1,103 @@
 package main
 
 import (
-	"Order-tracker-service/internal/domain"
+	"Order-tracker-service/config"
+	"Order-tracker-service/internal/db"
 	"Order-tracker-service/internal/repository"
-	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"Order-tracker-service/internal/service"
+	httptransport "Order-tracker-service/internal/transport/http"
+	"Order-tracker-service/internal/transport/kafka"
+	"context"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Загружаем переменные окружения
 	if err := godotenv.Load("/Users/veraryabova/Desktop/Go/Order-tracker-service/.env"); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	pgDsn := os.Getenv("PG_DSN")
-
-	fmt.Println(pgDsn)
-
-	dataBase, err := sqlx.Connect("postgres", pgDsn)
+	// Загружаем конфигурацию
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Failed to connect to PostgreSQL: %v", err)
+		log.Fatalf("Failed to load config: %v", err)
 	}
-	defer dataBase.Close()
 
-	// db.RunMigrations(dataBase, "/Users/veraryabova/Desktop/Go/Order-tracker-service/migrations/")
+	// Инициализируем подключение к базе данных
+	dataBase, err := db.InitDB(&cfg.Database)
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer func() {
+		if err := db.CloseDB(dataBase); err != nil {
+			log.Printf("Error closing database: %v", err)
+		}
+	}()
 
+	// Создаем репозиторий
 	repo := repository.NewOrderRepository(dataBase)
 
-	// ⚡ Тестовые данные
-	order := domain.GetTestOrder()
+	// Создаем сервис
+	orderService := service.NewOrderService(repo, 0)
 
-	// --- Create ---
-	//err = repo.Create(order)
-	if err != nil {
-		log.Fatal("Ошибка при сохранении заказа:", err)
-	}
-	fmt.Println("✅ Order успешно сохранён в БД")
+	// Инициализируем HTTP хэндлер
+	httpHandler := httptransport.NewHandler(orderService)
+	router := httpHandler.InitRoutes()
 
-	// --- GetById ---
-	orderFromDb, err := repo.GetById(order.OrderUID)
-	if err != nil {
-		log.Fatal("Ошибка при получении заказа по ID:", err)
+	// Создаем HTTP сервер
+	server := &http.Server{
+		Addr:    ":" + cfg.Server.Port,
+		Handler: router,
 	}
-	fmt.Printf("📦 Order по UID=%s:\n%+v\n\n", order.OrderUID, orderFromDb)
 
-	// --- GetAll ---
-	allOrders, err := repo.GetAll()
+	// Инициализируем Kafka консьюмер
+	consumer, err := kafka.NewConsumer(&cfg.Kafka, orderService)
 	if err != nil {
-		log.Fatal("Ошибка при получении всех заказов:", err)
+		log.Fatalf("Failed to create Kafka consumer: %v", err)
 	}
-	fmt.Println("📜 Все заказы из БД:")
-	for _, o := range allOrders {
-		fmt.Printf("- %s (%s)\n", o.OrderUID, o.CustomerID)
+
+	// Запускаем консьюмер
+	if err := consumer.Start(); err != nil {
+		log.Fatalf("Failed to start Kafka consumer: %v", err)
 	}
+
+	// Запускаем HTTP сервер в отдельной горутине
+	go func() {
+		log.Printf("HTTP server starting on port %s", cfg.Server.Port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Failed to start HTTP server: %v", err)
+		}
+	}()
+
+	log.Printf("Order service, Kafka consumer and HTTP server initialized successfully")
+
+	// Ожидаем сигнал для graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Блокируемся до получения сигнала
+	<-sigChan
+	log.Println("Received shutdown signal, stopping services...")
+
+	// Graceful shutdown HTTP сервера
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("Error shutting down HTTP server: %v", err)
+	}
+
+	// Останавливаем консьюмер
+	if err := consumer.Stop(); err != nil {
+		log.Printf("Error stopping Kafka consumer: %v", err)
+	}
+
+	log.Println("Application shutdown completed")
 }

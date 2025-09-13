@@ -2,9 +2,82 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .api-section {
+            margin-top: 30px;
+        }
+        .endpoint {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+            border-radius: 5px;
+        }
+        .method {
+            font-weight: bold;
+            color: #28a745;
+        }
+        .url {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .description {
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
 </head>
 <body>
-
+    <div class="container">
+        <h1>{{.title}}</h1>
+        <p style="text-align: center; color: #666; font-size: 18px;">{{.message}}</p>
+        
+        <div class="api-section">
+            <h2>API Endpoints</h2>
+            
+            <div class="endpoint">
+                <div class="method">GET</div>
+                <div class="url">/api/v1/health</div>
+                <div class="description">Health check endpoint</div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="method">GET</div>
+                <div class="url">/api/v1/orders</div>
+                <div class="description">Get all orders (with pagination: ?page=1&limit=10)</div>
+            </div>
+            
+            <div class="endpoint">
+                <div class="method">GET</div>
+                <div class="url">/api/v1/orders/{id}</div>
+                <div class="description">Get order by ID</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #666;">
+            <p>Order Tracker Service is running and ready to process orders!</p>
+        </div>
+    </div>
 </body>
 </html>
