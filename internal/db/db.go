@@ -39,7 +39,7 @@ func InitDB(cfg *config.DatabaseConfig) (*sqlx.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	log.Printf("✅ Successfully connected to PostgreSQL database: %s@%s:%d/%s",
+	log.Printf("Successfully connected to PostgreSQL database: %s@%s:%d/%s",
 		cfg.Username, cfg.Host, cfg.Port, cfg.Database)
 
 	return db, nil
@@ -55,7 +55,7 @@ func CloseDB(db *sqlx.DB) error {
 		return fmt.Errorf("failed to close database connection: %w", err)
 	}
 
-	log.Println("✅ Database connection closed successfully")
+	log.Println("Database connection closed successfully")
 	return nil
 }
 

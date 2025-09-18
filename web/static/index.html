@@ -75,9 +75,22 @@
             </div>
         </div>
         
+        <div class="api-section">
+            <h2>Просмотр заказа</h2>
+            <div class="endpoint">
+                <label for="orderId">Order UID:</label>
+                <input id="orderId" type="text" placeholder="введите Order UID" style="width: 60%; padding: 8px; margin-left: 8px;" />
+                <button id="loadBtn" style="margin-left: 8px; padding: 8px 12px;">Загрузить</button>
+                <div id="status" style="margin-top:10px; color:#666"></div>
+            </div>
+
+            <pre id="orderJson" style="background:#111;color:#ddd;padding:16px;border-radius:8px;overflow:auto;display:none"></pre>
+        </div>
+
         <div style="margin-top: 30px; text-align: center; color: #666;">
             <p>Order Tracker Service is running and ready to process orders!</p>
         </div>
     </div>
+    <script src="/static/app.js"></script>
 </body>
 </html>

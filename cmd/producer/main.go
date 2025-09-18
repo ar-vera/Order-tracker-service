@@ -166,10 +166,8 @@ func main() {
 	// Инициализируем генератор случайных чисел
 	rand.Seed(time.Now().UnixNano())
 
-	// Загружаем переменные окружения
-	if err := godotenv.Load("/Users/veraryabova/Desktop/Go/Order-tracker-service/.env"); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// Загружаем переменные окружения (локально .env, в контейнере переменные уже установлены)
+	_ = godotenv.Load()
 
 	// Загружаем конфигурацию
 	cfg, err := config.LoadConfig()

@@ -24,24 +24,36 @@ func NewOrderService(repo repository.OrderRepository, Size int) *OrderService {
 }
 
 func (s *OrderService) CheckCache() bool {
-	return s.CacheSize <= 100
+	// Ограничиваем размер кэша простым порогом по количеству ключей
+	return len(s.cache) < 100
 }
 
 func (s *OrderService) GetInfo(orderUID string) (*domain.Order, error) {
+	// 1) Проверяем кэш под RLock
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-	order, ok := s.cache[orderUID]
-	if !ok {
-		return order, nil
+	orderFromCache, found := s.cache[orderUID]
+	s.mu.RUnlock()
+	if found && orderFromCache != nil {
+		return orderFromCache, nil
 	}
-	s.mu.Unlock()
 
-	order, err := s.repo.GetById(orderUID)
+	// 2) Если в кэше нет — читаем из БД
+	orderFromDB, err := s.repo.GetById(orderUID)
 	if err != nil {
 		return nil, err
 	}
+	if orderFromDB == nil {
+		return nil, nil
+	}
 
-	return order, nil
+	// 3) Кладём в кэш для последующих запросов
+	if s.CheckCache() {
+		s.mu.Lock()
+		s.cache[orderUID] = orderFromDB
+		s.mu.Unlock()
+	}
+
+	return orderFromDB, nil
 }
 
 func (s *OrderService) Create(order *domain.Order) error {
@@ -51,10 +63,6 @@ func (s *OrderService) Create(order *domain.Order) error {
 	}
 	if s.CheckCache() {
 		s.mu.Lock()
-		if _, ok := s.cache[order.OrderUID]; ok {
-			s.CacheSize++
-			return nil
-		}
 		s.cache[order.OrderUID] = order
 		s.mu.Unlock()
 	}

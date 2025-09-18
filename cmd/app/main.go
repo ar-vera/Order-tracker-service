@@ -20,9 +20,8 @@ import (
 
 func main() {
 	// Загружаем переменные окружения
-	if err := godotenv.Load("/Users/veraryabova/Desktop/Go/Order-tracker-service/.env"); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	// В контейнере переменные приходят из окружения docker-compose, поэтому .env может отсутствовать
+	_ = godotenv.Load()
 
 	// Загружаем конфигурацию
 	cfg, err := config.LoadConfig()
@@ -35,6 +34,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
+
+	// Запускаем миграции
+	db.RunMigrations(dataBase, "migrations")
 	defer func() {
 		if err := db.CloseDB(dataBase); err != nil {
 			log.Printf("Error closing database: %v", err)
